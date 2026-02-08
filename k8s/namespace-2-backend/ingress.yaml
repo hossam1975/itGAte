@@ -1,0 +1,33 @@
+# Ingress for API paths (same host buzzboard.local; NGINX merges with frontend Ingress).
+# Create TLS secret in backend too: kubectl create secret tls ingress-tls --cert=tls.crt --key=tls.key -n backend
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: buzzboard-ingress-api
+  namespace: backend
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - buzzboard.local
+      secretName: ingress-tls
+  rules:
+    - host: buzzboard.local
+      http:
+        paths:
+          - path: /api/reactions(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: reactions-svc
+                port:
+                  number: 8080
+          - path: /api/mood(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mood-svc
+                port:
+                  number: 8080

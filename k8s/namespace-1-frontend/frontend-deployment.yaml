@@ -1,0 +1,42 @@
+# ConfigMap mounted as config.js so the browser gets the API base URLs (apply before Deployment).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config-js
+  namespace: frontend
+data:
+  config.js: |
+    window.REACTIONS_SVC_URL = '/api/reactions';
+    window.MOOD_SVC_URL = '/api/mood';
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config-js
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+      volumes:
+        - name: config-js
+          configMap:
+            name: frontend-config-js

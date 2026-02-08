@@ -1,0 +1,23 @@
+# Ingress for frontend only (path /). API paths are in backend/ingress.yaml (same host, merged by NGINX).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: buzzboard-ingress
+  namespace: frontend
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - buzzboard.local
+      secretName: ingress-tls
+  rules:
+    - host: buzzboard.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  number: 80

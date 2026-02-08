@@ -1,0 +1,11 @@
+# Use the same provisioner as your cluster's default StorageClass, but with reclaimPolicy: Retain.
+# Common values: rancher.io/local-path (k3d/kind), k8s.io/minikube-hostpath, pd.csi.storage.gke.io (GKE).
+# Get default: kubectl get sc -o jsonpath='{.items[0].provisioner}'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard-retain
+provisioner: rancher.io/local-path
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+parameters: {}

@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reactions
+  namespace: backend
+  labels:
+    app: reactions
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reactions
+  template:
+    metadata:
+      labels:
+        app: reactions
+    spec:
+      containers:
+        - name: reactions
+          image: reactions:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: REDIS_PORT
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MYSQL_HOST
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MYSQL_DATABASE
+            - name: MOOD_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MOOD_SVC_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: REDIS_PASSWORD
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: MYSQL_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: JWT_SECRET
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reactions-svc
+  namespace: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: reactions
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

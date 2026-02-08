@@ -1,0 +1,73 @@
+# Buzz Board — run frontend, reactions, mood, redis, mysql without K8s.
+# From project root: docker-compose up -d --build
+# Frontend: http://localhost:3001  |  Reactions API: http://localhost:8081  |  Mood API: http://localhost:8082
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass buzzboard-redis-secret
+    ports:
+      - "6379:6379"
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: buzzboard-mysql-root
+      MYSQL_USER: buzzboard
+      MYSQL_PASSWORD: buzzboard-mysql-secret
+      MYSQL_DATABASE: buzzboard
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  reactions:
+    build: ./backend/reactions
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: "8080"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: buzzboard-redis-secret
+      MYSQL_HOST: mysql
+      MYSQL_USER: buzzboard
+      MYSQL_PASSWORD: buzzboard-mysql-secret
+      MYSQL_DATABASE: buzzboard
+      MOOD_SVC_URL: http://mood:8080
+      JWT_SECRET: buzzboard-jwt-secret-change-in-production
+    depends_on:
+      - redis
+      - mysql
+
+  mood:
+    build: ./backend/mood
+    ports:
+      - "8082:8080"
+    environment:
+      PORT: "8080"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: buzzboard-redis-secret
+      MYSQL_HOST: mysql
+      MYSQL_USER: buzzboard
+      MYSQL_PASSWORD: buzzboard-mysql-secret
+      MYSQL_DATABASE: buzzboard
+      REACTIONS_SVC_URL: http://reactions:8080
+      JWT_SECRET: buzzboard-jwt-secret-change-in-production
+    depends_on:
+      - redis
+      - mysql
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:80"
+    volumes:
+      - ./frontend/public/config.docker.js:/usr/share/nginx/html/config.js:ro
+    depends_on:
+      - reactions
+      - mood
+
+volumes:
+  mysql_data: {}

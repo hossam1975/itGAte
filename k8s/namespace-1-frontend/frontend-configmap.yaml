@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: frontend
+data:
+  # Browser reaches APIs via same origin (Ingress routes /api/reactions and /api/mood to backend).
+  # For same-origin leave as /api so frontend calls /api/reactions and /api/mood.
+  REACTIONS_SVC_URL: "/api/reactions"
+  MOOD_SVC_URL: "/api/mood"

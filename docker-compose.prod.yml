@@ -1,0 +1,14 @@
+# Override for production: use images from Docker Hub instead of building.
+# Used by Azure DevOps pipeline when deploying to EC2.
+# On the server, set: export DOCKERHUB_IMAGE_PREFIX=youruser/ashour-chat  export TAG=buildId
+# Then: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  frontend:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-frontend:${TAG}
+
+  reactions:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-reactions:${TAG}
+
+  mood:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-mood:${TAG}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# TLS / secrets (do not commit)
+#tls.key
+#tls.crt
+#*.pem
+
+# Env and local config
+.env
+.env.local
+.env.*.local
+
+# OS and editor
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs and build
+npm-debug.log*
+*.log
+dist/
+build/
