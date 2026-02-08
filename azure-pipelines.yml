@@ -22,8 +22,6 @@ variables:
     value: '$(DOCKERHUB_USERNAME)/ashour-chat'
   - name: TAG
     value: $[ coalesce(variables['Build.SourceVersion'], variables['Build.BuildId']) ]
-  - name: effectiveTag
-    value: "$[ eq(coalesce('${{ parameters.imageTag }}', ''), '') ? variables['Build.BuildId'] : '${{ parameters.imageTag }}' ]"
 
 trigger:
   branches:
@@ -44,6 +42,15 @@ stages:
       - job: BuildImages
         displayName: 'Build and push Docker images'
         steps:
+          - script: |
+              if [ -z "${{ parameters.imageTag }}" ]; then
+                echo "##vso[task.setvariable variable=effectiveTag;isOutput=true]$(Build.BuildId)"
+              else
+                echo "##vso[task.setvariable variable=effectiveTag;isOutput=true]${{ parameters.imageTag }}"
+              fi
+            displayName: 'Set effectiveTag (param or Build.BuildId)'
+            name: setEffectiveTag
+
           - task: Docker@2
             displayName: 'Login to Docker Hub'
             inputs:
@@ -98,6 +105,8 @@ stages:
     displayName: 'Deploy to EC2 (Docker Compose)'
     dependsOn: Build
     condition: and(succeeded(), eq('${{ parameters.deployTarget }}', 'ec2-docker-compose'))
+    variables:
+      effectiveTag: $[ stageDependencies.Build.BuildImages.outputs['setEffectiveTag.effectiveTag'] ]
     jobs:
       - deployment: DeployToEC2
         displayName: 'Deploy on EC2 with Docker Compose'
@@ -135,6 +144,8 @@ stages:
     displayName: 'Deploy to Kubernetes'
     dependsOn: Build
     condition: and(succeeded(), eq('${{ parameters.deployTarget }}', 'k8s'))
+    variables:
+      effectiveTag: $[ stageDependencies.Build.BuildImages.outputs['setEffectiveTag.effectiveTag'] ]
     jobs:
       - deployment: DeployToK8s
         displayName: 'Deploy to K8s cluster'
