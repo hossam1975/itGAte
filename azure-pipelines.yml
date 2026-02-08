@@ -82,7 +82,7 @@ stages:
               containerRegistry: 'dockerHubConnection'
               repository: '$(DOCKERHUB_IMAGE_PREFIX)-reactions'
               Dockerfile: 'backend/reactions/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)'
+              buildContext: '$(Build.SourcesDirectory)/backend/reactions'
               tags: |
                 $(effectiveTag)
                 latest
@@ -94,7 +94,7 @@ stages:
               containerRegistry: 'dockerHubConnection'
               repository: '$(DOCKERHUB_IMAGE_PREFIX)-mood'
               Dockerfile: 'backend/mood/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)'
+              buildContext: '$(Build.SourcesDirectory)/backend/mood'
               tags: |
                 $(effectiveTag)
                 latest
