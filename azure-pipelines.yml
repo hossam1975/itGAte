@@ -70,7 +70,7 @@ stages:
               containerRegistry: 'dockerHubConnection'
               repository: '$(DOCKERHUB_IMAGE_PREFIX)-frontend'
               Dockerfile: 'frontend/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)'
+              buildContext: '$(Build.SourcesDirectory)/frontend'
               tags: |
                 $(effectiveTag)
                 latest
@@ -112,6 +112,7 @@ stages:
     dependsOn: Build
     condition: and(succeeded(), eq('${{ parameters.deployTarget }}', 'ec2-docker-compose'))
     variables:
+
       effectiveTag: $[ stageDependencies.Build.SetTag.outputs['setEffectiveTag.effectiveTag'] ]
     jobs:
       - deployment: DeployToEC2
