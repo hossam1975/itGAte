@@ -181,10 +181,63 @@ stages:
                     done
                   displayName: 'Replace image tags in K8s manifests'
 
+                - task: DownloadSecureFile@1
+                  name: download_tls_crt
+                  displayName: 'Download TLS certificate'
+                  inputs:
+                    secureFile: 'tls.crt'
+
+                - task: DownloadSecureFile@1
+                  name: download_tls_key
+                  displayName: 'Download TLS key'
+                  inputs:
+                    secureFile: 'tls.key'
+
                 - bash: |
                     set -e
-                    K8S_ROOT="$(Build.SourcesDirectory)/k8s"
-                    kubectl apply -f "$K8S_ROOT/namespace-3-data"
-                    kubectl apply -f "$K8S_ROOT/namespace-2-backend"
-                    kubectl apply -f "$K8S_ROOT/namespace-1-frontend"
-                  displayName: 'Apply K8s manifests (data → backend → frontend)'
+                    kubectl create secret tls ingress-tls \
+                      --cert="$(download_tls_crt.secureFilePath)" \
+                      --key="$(download_tls_key.secureFilePath)" \
+                      -n frontend --dry-run=client -o yaml | kubectl apply -f -
+                    kubectl create secret tls ingress-tls \
+                      --cert="$(download_tls_crt.secureFilePath)" \
+                      --key="$(download_tls_key.secureFilePath)" \
+                      -n backend --dry-run=client -o yaml | kubectl apply -f -
+                  displayName: 'Create TLS secret (ingress-tls) in frontend and backend'
+
+                - bash: |
+                    set -e
+                    K="$(Build.SourcesDirectory)/k8s"
+                    # Namespaces first (README: "Apply manifests in order")
+                    kubectl apply -f "$K/namespace-1-frontend/namespace.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/namespace.yaml"
+                    kubectl apply -f "$K/namespace-3-data/namespace.yaml"
+                    # Data layer
+                    kubectl apply -f "$K/namespace-3-data/storageclass.yaml"
+                    kubectl apply -f "$K/namespace-3-data/redis-configmap.yaml"
+                    kubectl apply -f "$K/namespace-3-data/redis-secret.yaml"
+                    kubectl apply -f "$K/namespace-3-data/redis-statefulset.yaml"
+                    kubectl apply -f "$K/namespace-3-data/redis-networkpolicy.yaml"
+                    kubectl apply -f "$K/namespace-3-data/mysql-configmap.yaml"
+                    kubectl apply -f "$K/namespace-3-data/mysql-secret.yaml"
+                    kubectl apply -f "$K/namespace-3-data/mysql-statefulset.yaml"
+                    kubectl apply -f "$K/namespace-3-data/mysql-networkpolicy.yaml"
+                    # Backend layer
+                    kubectl apply -f "$K/namespace-2-backend/reactions-configmap.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/reactions-secret.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/reactions-deployment.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/mood-configmap.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/mood-secret.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/mood-deployment.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/backend-networkpolicy.yaml"
+                    kubectl apply -f "$K/namespace-2-backend/backend-hpa.yaml"
+                    # Frontend layer
+                    kubectl apply -f "$K/namespace-1-frontend/frontend-configmap.yaml"
+                    kubectl apply -f "$K/namespace-1-frontend/frontend-secret.yaml"
+                    kubectl apply -f "$K/namespace-1-frontend/frontend-deployment.yaml"
+                    kubectl apply -f "$K/namespace-1-frontend/frontend-service.yaml"
+                    kubectl apply -f "$K/namespace-1-frontend/frontend-networkpolicy.yaml"
+                    # Ingress (TLS secret created in previous step from secure files)
+                    kubectl apply -f "$K/namespace-2-backend/ingress.yaml"
+                    kubectl apply -f "$K/namespace-1-frontend/ingress.yaml"
+                  displayName: 'Apply K8s manifests (README order: namespaces → data → backend → frontend → ingress)'

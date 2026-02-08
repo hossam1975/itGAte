@@ -90,7 +90,7 @@ The pipeline uses environments **`ec2`** and **`k8s`** for deployment. If they d
 ## 6. K8s prerequisites
 
 - Cluster has an Ingress controller (e.g. NGINX) if you use the Ingress manifests.  
-- TLS secret `ingress-tls` created in the frontend (and backend) namespace(s) as per `k8s/ssl/README.md`.  
+- **TLS cert and key for Ingress:** The pipeline creates the `ingress-tls` secret in the `frontend` and `backend` namespaces from secure files. In **Pipelines → Library → Secure files**, upload two files named exactly **`tls.crt`** and **`tls.key`** (e.g. from `k8s/ssl/` or your CA). Authorize the pipeline to use them.  
 - Namespaces `frontend`, `backend`, `data` will be created by the manifests if not present.
 
 ---
