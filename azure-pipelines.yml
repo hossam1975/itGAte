@@ -181,24 +181,10 @@ stages:
                     done
                   displayName: 'Replace image tags in K8s manifests'
 
-                - task: Kubernetes@1
-                  displayName: 'Apply K8s namespace-3-data'
-                  inputs:
-                    connectionType: 'Kubernetes Service Connection'
-                    kubernetesServiceConnection: 'orbstack-k8s'
-                    command: 'apply'
-                    arguments: '-f $(Build.SourcesDirectory)/k8s/namespace-3-data'
-                - task: Kubernetes@1
-                  displayName: 'Apply K8s namespace-2-backend'
-                  inputs:
-                    connectionType: 'Kubernetes Service Connection'
-                    kubernetesServiceConnection: 'orbstack-k8s'
-                    command: 'apply'
-                    arguments: '-f $(Build.SourcesDirectory)/k8s/namespace-2-backend'
-                - task: Kubernetes@1
-                  displayName: 'Apply K8s namespace-1-frontend'
-                  inputs:
-                    connectionType: 'Kubernetes Service Connection'
-                    kubernetesServiceConnection: 'orbstack-k8s'
-                    command: 'apply'
-                    arguments: '-f $(Build.SourcesDirectory)/k8s/namespace-1-frontend'
+                - bash: |
+                    set -e
+                    K8S_ROOT="$(Build.SourcesDirectory)/k8s"
+                    kubectl apply -f "$K8S_ROOT/namespace-3-data"
+                    kubectl apply -f "$K8S_ROOT/namespace-2-backend"
+                    kubectl apply -f "$K8S_ROOT/namespace-1-frontend"
+                  displayName: 'Apply K8s manifests (data → backend → frontend)'

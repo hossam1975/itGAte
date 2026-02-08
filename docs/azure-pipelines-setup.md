@@ -92,3 +92,58 @@ The pipeline uses environments **`ec2`** and **`k8s`** for deployment. If they d
 - Cluster has an Ingress controller (e.g. NGINX) if you use the Ingress manifests.  
 - TLS secret `ingress-tls` created in the frontend (and backend) namespace(s) as per `k8s/ssl/README.md`.  
 - Namespaces `frontend`, `backend`, `data` will be created by the manifests if not present.
+
+---
+
+## 7. Workaround: K8s agent and local clusters (OrbStack, minikube, Docker Desktop)
+
+When the pipeline runs on an **agent** (e.g. a CentOS server) and the Kubernetes cluster runs on your **laptop or Mac** (OrbStack, minikube, Docker Desktop), the agent cannot reach the cluster by default.
+
+### Why it fails
+
+- The cluster’s API server usually listens only on **127.0.0.1** (localhost) on the machine where the cluster runs.
+- The agent has a kubeconfig pointing at your machine’s LAN IP (e.g. `https://172.20.10.3:26443`). The network path is fine (ping works), but **nothing is listening** on that IP:port on your Mac—only on 127.0.0.1. So you get **connection refused**.
+- Desktop K8s (OrbStack, minikube, Docker Desktop) typically do not bind the API server to a LAN IP for security.
+
+### Workaround: SSH tunnel
+
+Run an **SSH port forward** **on the agent** so that traffic to the agent’s localhost:26443 is sent over SSH to the cluster host’s 127.0.0.1:26443.
+
+**1. On the agent machine** (e.g. CentOS where the pipeline runs), start the tunnel:
+
+```bash
+ssh -f -N -L 26443:127.0.0.1:26443 YOUR_USER@CLUSTER_HOST_IP
+```
+
+| Part | Meaning |
+|------|--------|
+| `-f` | Run SSH in the background after connecting. |
+| `-N` | No remote shell or command—only port forwarding. |
+| `-L 26443:127.0.0.1:26443` | On the agent: listen on port **26443**; forward to the **remote** host at **127.0.0.1:26443** (where the API server actually listens). |
+| `YOUR_USER@CLUSTER_HOST_IP` | SSH login to the machine that runs the cluster (e.g. `ashouryasser@172.20.10.3`). |
+
+Use the **cluster host’s LAN IP** (the one the agent can ping). For OrbStack the API port is usually **26443**; for minikube/kubeadm it is often **6443**—adjust the port in `-L` and in kubeconfig if needed.
+
+**2. Set the agent’s kubeconfig** so the cluster server is **localhost** on the agent:
+
+- **server:** `https://127.0.0.1:26443`  
+  (Do **not** use the cluster host’s LAN IP here; use 127.0.0.1 so `kubectl` talks to the tunnel.)
+
+**3. Verify from the agent:**
+
+```bash
+kubectl get all
+```
+
+**4. Pipeline / service connection**
+
+- The **orbstack-k8s** (or your K8s) service connection must use a kubeconfig that has **server: https://127.0.0.1:26443** and is valid **on the agent** (same user that runs the pipeline, or a shared config the agent reads). The tunnel must be **running** whenever the pipeline runs the K8s deploy job.
+- If the pipeline runs as a different user (e.g. `azpagent`), either run the tunnel as that user (e.g. systemd user service) or start the tunnel in the pipeline before the Kubernetes steps (e.g. a step that runs the `ssh -f -N -L ...` command with the right SSH key).
+
+### Summary
+
+| Step | Action |
+|------|--------|
+| 1 | On the **agent**, run: `ssh -f -N -L 26443:127.0.0.1:26443 user@cluster-host-ip` |
+| 2 | In the agent’s **kubeconfig**, set the cluster server to `https://127.0.0.1:26443`. |
+| 3 | Ensure the tunnel is active when the pipeline runs (same user or started in the pipeline). |
