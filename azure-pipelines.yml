@@ -23,7 +23,7 @@ variables:
   - name: TAG
     value: $[ coalesce(variables['Build.SourceVersion'], variables['Build.BuildId']) ]
   - name: effectiveTag
-    value: $[ eq(coalesce('${{ parameters.imageTag }}', ''), '') ? variables['Build.BuildId'] : '${{ parameters.imageTag }}' ]
+    value: "$[ eq(coalesce('${{ parameters.imageTag }}', ''), '') ? variables['Build.BuildId'] : '${{ parameters.imageTag }}' ]"
 
 trigger:
   branches:
