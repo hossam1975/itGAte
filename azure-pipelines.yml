@@ -215,8 +215,13 @@ stages:
                 - bash: |
                     set -e
                     K="$(Build.SourcesDirectory)/k8s"
+                    # StorageClass: apply only if it does not exist (K8s forbids updates to parameters)
+                    if ! kubectl get storageclass standard-retain --ignore-not-found -o name 2>/dev/null | grep -q .; then
+                      kubectl apply -f "$K/namespace-3-data/storageclass.yaml"
+                    else
+                      echo "StorageClass standard-retain already exists, skipping apply."
+                    fi
                     # Data layer
-                    kubectl apply -f "$K/namespace-3-data/storageclass.yaml"
                     kubectl apply -f "$K/namespace-3-data/redis-configmap.yaml"
                     kubectl apply -f "$K/namespace-3-data/redis-secret.yaml"
                     kubectl apply -f "$K/namespace-3-data/redis-statefulset.yaml"
@@ -306,5 +311,6 @@ stages:
                       --set frontend.image.tag="$(effectiveTag)" \
                       --set reactions.image.tag="$(effectiveTag)" \
                       --set mood.image.tag="$(effectiveTag)" \
+                      --set storageClass.enabled=false \
                       --wait --timeout 5m
                   displayName: 'Helm upgrade --install ashour-chat (local cluster)'
