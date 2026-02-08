@@ -39,8 +39,8 @@ stages:
   - stage: Build
     displayName: 'Build and push to Docker Hub'
     jobs:
-      - job: BuildImages
-        displayName: 'Build and push Docker images'
+      - job: SetTag
+        displayName: 'Set image tag'
         steps:
           - script: |
               if [ -z "${{ parameters.imageTag }}" ]; then
@@ -51,6 +51,12 @@ stages:
             displayName: 'Set effectiveTag (param or Build.BuildId)'
             name: setEffectiveTag
 
+      - job: BuildImages
+        displayName: 'Build and push Docker images'
+        dependsOn: SetTag
+        variables:
+          effectiveTag: $[ dependencies.SetTag.outputs['setEffectiveTag.effectiveTag'] ]
+        steps:
           - task: Docker@2
             displayName: 'Login to Docker Hub'
             inputs:
@@ -106,7 +112,7 @@ stages:
     dependsOn: Build
     condition: and(succeeded(), eq('${{ parameters.deployTarget }}', 'ec2-docker-compose'))
     variables:
-      effectiveTag: $[ stageDependencies.Build.BuildImages.outputs['setEffectiveTag.effectiveTag'] ]
+      effectiveTag: $[ stageDependencies.Build.SetTag.outputs['setEffectiveTag.effectiveTag'] ]
     jobs:
       - deployment: DeployToEC2
         displayName: 'Deploy on EC2 with Docker Compose'
@@ -144,7 +150,7 @@ stages:
     dependsOn: Build
     condition: and(succeeded(), eq('${{ parameters.deployTarget }}', 'k8s'))
     variables:
-      effectiveTag: $[ stageDependencies.Build.BuildImages.outputs['setEffectiveTag.effectiveTag'] ]
+      effectiveTag: $[ stageDependencies.Build.SetTag.outputs['setEffectiveTag.effectiveTag'] ]
     jobs:
       - deployment: DeployToK8s
         displayName: 'Deploy to K8s cluster'
