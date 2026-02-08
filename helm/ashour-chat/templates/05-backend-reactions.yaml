@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reactions-config
+  namespace: {{ .Values.namespaces.backend }}
+data:
+  {{- range $k, $v := .Values.reactions.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reactions-secret
+  namespace: {{ .Values.namespaces.backend }}
+type: Opaque
+stringData:
+  REDIS_PASSWORD: {{ .Values.secrets.redisPassword | quote }}
+  MYSQL_USER: {{ .Values.secrets.mysqlUser | quote }}
+  MYSQL_PASSWORD: {{ .Values.secrets.mysqlPassword | quote }}
+  JWT_SECRET: {{ .Values.secrets.jwtSecret | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reactions
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    app: reactions
+spec:
+  replicas: {{ .Values.reactions.replicaCount }}
+  selector:
+    matchLabels:
+      app: reactions
+  template:
+    metadata:
+      labels:
+        app: reactions
+    spec:
+      containers:
+        - name: reactions
+          image: {{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}-reactions:{{ .Values.reactions.image.tag }}{{- else }}{{ .Values.reactions.image.repository }}:{{ .Values.reactions.image.tag }}{{- end }}
+          imagePullPolicy: {{ default .Values.global.imagePullPolicy .Values.reactions.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.reactions.service.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.reactions.service.port | quote }}
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: REDIS_PORT
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MYSQL_HOST
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MYSQL_DATABASE
+            - name: MOOD_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: reactions-config
+                  key: MOOD_SVC_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: REDIS_PASSWORD
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: MYSQL_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: reactions-secret
+                  key: JWT_SECRET
+          resources:
+            {{- toYaml .Values.reactions.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reactions-svc
+  namespace: {{ .Values.namespaces.backend }}
+spec:
+  type: ClusterIP
+  selector:
+    app: reactions
+  ports:
+    - port: {{ .Values.reactions.service.port }}
+      targetPort: {{ .Values.reactions.service.port }}
+      name: http
+---
+{{- if .Values.reactions.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: reactions-hpa
+  namespace: {{ .Values.namespaces.backend }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: reactions
+  minReplicas: {{ .Values.reactions.hpa.minReplicas }}
+  maxReplicas: {{ .Values.reactions.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.reactions.hpa.targetCPUUtilization }}
+{{- end }}

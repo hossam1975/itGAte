@@ -1,0 +1,98 @@
+# ConfigMap for browser config.js (API URLs)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config-js
+  namespace: {{ .Values.namespaces.frontend }}
+data:
+  config.js: |
+    window.REACTIONS_SVC_URL = '{{ .Values.frontend.config.REACTIONS_SVC_URL }}';
+    window.MOOD_SVC_URL = '{{ .Values.frontend.config.MOOD_SVC_URL }}';
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: {{ .Values.namespaces.frontend }}
+data:
+  REACTIONS_SVC_URL: {{ .Values.frontend.config.REACTIONS_SVC_URL | quote }}
+  MOOD_SVC_URL: {{ .Values.frontend.config.MOOD_SVC_URL | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frontend-secret
+  namespace: {{ .Values.namespaces.frontend }}
+type: Opaque
+stringData: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: {{ .Values.namespaces.frontend }}
+  labels:
+    app: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: {{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}-frontend:{{ .Values.frontend.image.tag }}{{- else }}{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}{{- end }}
+          imagePullPolicy: {{ default .Values.global.imagePullPolicy .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.service.port }}
+          volumeMounts:
+            - name: config-js
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+      volumes:
+        - name: config-js
+          configMap:
+            name: frontend-config-js
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: {{ .Values.namespaces.frontend }}
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: {{ .Values.frontend.service.port }}
+      name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-networkpolicy
+  namespace: {{ .Values.namespaces.frontend }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.namespaces.backend }}
+      ports:
+        - protocol: TCP
+          port: 8080

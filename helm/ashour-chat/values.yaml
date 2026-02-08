@@ -1,0 +1,138 @@
+# Default values for ashour-chat (frontend, reactions, mood, Redis, MySQL).
+# Override with -f custom-values.yaml or --set key=value.
+
+# Image registry prefix (e.g. ashour11/ashour-chat); images become <prefix>-frontend:<tag>, <prefix>-reactions:<tag>, <prefix>-mood:<tag>)
+global:
+  imageRegistry: ""  # e.g. ashour11/ashour-chat
+  imagePullPolicy: IfNotPresent
+
+# Namespaces (created by the chart)
+namespaces:
+  frontend: frontend
+  backend: backend
+  data: data
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  host: buzzboard.local
+  tls:
+    enabled: true
+    secretName: ingress-tls  # Create separately: kubectl create secret tls ingress-tls --cert=tls.crt --key=tls.key -n frontend -n backend
+
+# --- Frontend ---
+frontend:
+  replicaCount: 1
+  image:
+    repository: frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  config:
+    REACTIONS_SVC_URL: "/api/reactions"
+    MOOD_SVC_URL: "/api/mood"
+
+# --- Backend: reactions ---
+reactions:
+  replicaCount: 1
+  image:
+    repository: reactions
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  config:
+    REDIS_HOST: "redis-svc.data.svc.cluster.local"
+    REDIS_PORT: "6379"
+    MYSQL_HOST: "mysql-svc.data.svc.cluster.local"
+    MYSQL_DATABASE: "buzzboard"
+    MOOD_SVC_URL: "http://mood-svc.backend.svc.cluster.local:8080"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilization: 70
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# --- Backend: mood ---
+mood:
+  replicaCount: 1
+  image:
+    repository: mood
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  config:
+    REDIS_HOST: "redis-svc.data.svc.cluster.local"
+    REDIS_PORT: "6379"
+    MYSQL_HOST: "mysql-svc.data.svc.cluster.local"
+    MYSQL_DATABASE: "buzzboard"
+    REACTIONS_SVC_URL: "http://reactions-svc.backend.svc.cluster.local:8080"
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+# --- Data: Redis ---
+redis:
+  replicaCount: 1
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  config:
+    maxmemory: "64mb"
+    maxmemory-policy: "allkeys-lru"
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+
+# --- Data: MySQL ---
+mysql:
+  replicaCount: 1
+  image:
+    repository: mysql
+    tag: "8.0"
+    pullPolicy: IfNotPresent
+  database: buzzboard
+  storageClass: standard-retain
+  size: 2Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# --- StorageClass (data layer PVCs) ---
+storageClass:
+  enabled: true
+  name: standard-retain
+  provisioner: rancher.io/local-path  # k3d/kind; use cluster default for GKE/minikube
+  reclaimPolicy: Retain
+  volumeBindingMode: WaitForFirstConsumer
+
+# --- Secrets (override in production; use --set-file or sealed-secrets) ---
+secrets:
+  redisPassword: "buzzboard-redis-secret"
+  mysqlRootPassword: "buzzboard-mysql-root"
+  mysqlUser: "buzzboard"
+  mysqlPassword: "buzzboard-mysql-secret"
+  jwtSecret: "buzzboard-jwt-secret-change-in-production"

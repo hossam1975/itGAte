@@ -1,10 +1,10 @@
 # Azure DevOps Pipeline Setup
 
-The pipeline (`azure-pipelines.yml`) builds frontend, reactions, and mood images, pushes them to **Docker Hub**, then deploys either to **EC2 (Docker Compose)** or to a **Kubernetes** cluster based on the parameter you choose.
+The pipeline (`azure-pipelines.yml`) builds frontend, reactions, and mood images, pushes them to **Docker Hub**, then deploys to **EC2 (Docker Compose)**, **Kubernetes (manifests)**, or **Kubernetes (Helm chart)** based on the parameter you choose.
 
 - **Agent pool:** Default  
 - **Image registry:** Docker Hub  
-- **Parameters:** `deployTarget` (ec2-docker-compose | k8s), optional `imageTag`
+- **Parameters:** `deployTarget` (ec2-docker-compose | k8s | k8s-helm), optional `imageTag`
 
 ---
 
@@ -72,10 +72,10 @@ The pipeline uses environments **`ec2`** and **`k8s`** for deployment. If they d
 ## 4. Running the pipeline
 
 1. **Run pipeline** and choose:
-   - **Deployment target:** `ec2-docker-compose` or `k8s`
+   - **Deployment target:** `ec2-docker-compose`, `k8s`, or `k8s-helm` (Helm chart to local cluster)
    - **Docker image tag:** leave empty to use build ID, or set e.g. `v1.0`
 2. Build stage: builds and pushes three images to Docker Hub.  
-3. Deploy stage: either copies compose files to EC2 and runs `docker compose`, or applies K8s manifests (data → backend → frontend) with the new image tags.
+3. Deploy stage: **ec2-docker-compose** — copies compose files to EC2 and runs `docker compose`; **k8s** — applies raw K8s manifests in order; **k8s-helm** — runs `helm upgrade --install` with the `helm/ashour-chat` chart (agent needs `kubectl` and the chart uses the same image tag).
 
 ---
 

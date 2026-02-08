@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mood-config
+  namespace: {{ .Values.namespaces.backend }}
+data:
+  {{- range $k, $v := .Values.mood.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mood-secret
+  namespace: {{ .Values.namespaces.backend }}
+type: Opaque
+stringData:
+  REDIS_PASSWORD: {{ .Values.secrets.redisPassword | quote }}
+  MYSQL_USER: {{ .Values.secrets.mysqlUser | quote }}
+  MYSQL_PASSWORD: {{ .Values.secrets.mysqlPassword | quote }}
+  JWT_SECRET: {{ .Values.secrets.jwtSecret | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mood
+  namespace: {{ .Values.namespaces.backend }}
+  labels:
+    app: mood
+spec:
+  replicas: {{ .Values.mood.replicaCount }}
+  selector:
+    matchLabels:
+      app: mood
+  template:
+    metadata:
+      labels:
+        app: mood
+    spec:
+      containers:
+        - name: mood
+          image: {{- if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}-mood:{{ .Values.mood.image.tag }}{{- else }}{{ .Values.mood.image.repository }}:{{ .Values.mood.image.tag }}{{- end }}
+          imagePullPolicy: {{ default .Values.global.imagePullPolicy .Values.mood.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.mood.service.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.mood.service.port | quote }}
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: mood-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mood-config
+                  key: REDIS_PORT
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: mood-config
+                  key: MYSQL_HOST
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: mood-config
+                  key: MYSQL_DATABASE
+            - name: REACTIONS_SVC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mood-config
+                  key: REACTIONS_SVC_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mood-secret
+                  key: REDIS_PASSWORD
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mood-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mood-secret
+                  key: MYSQL_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mood-secret
+                  key: JWT_SECRET
+          resources:
+            {{- toYaml .Values.mood.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mood-svc
+  namespace: {{ .Values.namespaces.backend }}
+spec:
+  type: ClusterIP
+  selector:
+    app: mood
+  ports:
+    - port: {{ .Values.mood.service.port }}
+      targetPort: {{ .Values.mood.service.port }}
+      name: http
