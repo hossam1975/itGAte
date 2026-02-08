@@ -64,41 +64,45 @@ stages:
               command: login
               containerRegistry: 'dockerHubConnection'
 
-          - task: Docker@2
-            displayName: 'Build and push frontend'
-            inputs:
-              command: buildAndPush
-              containerRegistry: 'dockerHubConnection'
-              repository: '$(DOCKERHUB_IMAGE_PREFIX)-frontend'
-              Dockerfile: 'frontend/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)/frontend'
-              tags: |
-                $(effectiveTag)
-                latest
+          - bash: |
+              set -e
+              docker buildx version
+              docker buildx create --name multiarch --driver docker-container --use 2>/dev/null || docker buildx use multiarch
+              docker buildx inspect --bootstrap
+            displayName: 'Set up buildx for multi-platform (amd64 + arm64)'
 
-          - task: Docker@2
-            displayName: 'Build and push reactions'
-            inputs:
-              command: buildAndPush
-              containerRegistry: 'dockerHubConnection'
-              repository: '$(DOCKERHUB_IMAGE_PREFIX)-reactions'
-              Dockerfile: 'backend/reactions/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)/backend/reactions'
-              tags: |
-                $(effectiveTag)
-                latest
+          - bash: |
+              set -e
+              IMG="$(DOCKERHUB_IMAGE_PREFIX)-frontend"
+              TAG="$(effectiveTag)"
+              docker buildx build --platform linux/amd64,linux/arm64 \
+                -f frontend/Dockerfile \
+                -t "$IMG:$TAG" -t "$IMG:latest" \
+                --push \
+                "$(Build.SourcesDirectory)/frontend"
+            displayName: 'Build and push frontend (multi-platform)'
 
-          - task: Docker@2
-            displayName: 'Build and push mood'
-            inputs:
-              command: buildAndPush
-              containerRegistry: 'dockerHubConnection'
-              repository: '$(DOCKERHUB_IMAGE_PREFIX)-mood'
-              Dockerfile: 'backend/mood/Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)/backend/mood'
-              tags: |
-                $(effectiveTag)
-                latest
+          - bash: |
+              set -e
+              IMG="$(DOCKERHUB_IMAGE_PREFIX)-reactions"
+              TAG="$(effectiveTag)"
+              docker buildx build --platform linux/amd64,linux/arm64 \
+                -f backend/reactions/Dockerfile \
+                -t "$IMG:$TAG" -t "$IMG:latest" \
+                --push \
+                "$(Build.SourcesDirectory)/backend/reactions"
+            displayName: 'Build and push reactions (multi-platform)'
+
+          - bash: |
+              set -e
+              IMG="$(DOCKERHUB_IMAGE_PREFIX)-mood"
+              TAG="$(effectiveTag)"
+              docker buildx build --platform linux/amd64,linux/arm64 \
+                -f backend/mood/Dockerfile \
+                -t "$IMG:$TAG" -t "$IMG:latest" \
+                --push \
+                "$(Build.SourcesDirectory)/backend/mood"
+            displayName: 'Build and push mood (multi-platform)'
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish image tag for deploy'
