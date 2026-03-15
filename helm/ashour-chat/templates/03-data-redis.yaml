@@ -6,7 +6,7 @@ metadata:
 data:
   redis.conf: |
     maxmemory {{ .Values.redis.config.maxmemory }}
-    maxmemory-policy {{ .Values.redis.config.maxmemory-policy }}
+    maxmemory-policy {{ index .Values.redis.config "maxmemory-policy" }}
 ---
 apiVersion: v1
 kind: Secret
