@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: hossam-full-project
-  namespace: argocd
+  namespace: argocd-new
 spec:
   project: default
   source:
