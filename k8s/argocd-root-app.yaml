@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hossam-full-project
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/vmlunixhossam1975/itGAte.git
+    targetRevision: HEAD
+    path: k8s # هيدور جوه فولدر k8s على كل الفولدرات الفرعية
+    directory:
+      recurse: true # دي عشان يدخل جوه الـ sub-folders ويمسح أي حاجة مش موجودة
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default # هو هيستخدم الـ namespaces اللي متعرفة جوه الملفات
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

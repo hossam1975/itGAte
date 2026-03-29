@@ -1,0 +1,25 @@
+# mood-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mood-svc
+  namespace: namespace-2-backend
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080 # البورت اللي الأبليكيشن شغال عليه جوه
+  selector:
+    app: mood
+---
+# reactions-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: reactions-svc
+  namespace: namespace-2-backend
+spec:
+  ports:
+  - port: 80
+    targetPort: 8081
+  selector:
+    app: reactions
